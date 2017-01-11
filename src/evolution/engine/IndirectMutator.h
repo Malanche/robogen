@@ -94,6 +94,7 @@ private:
 	 */
 	
 	bool createRule(boost::shared_ptr<RobotRepresentation> &robot);
+	Grammar::Rule* auxiliarRuleCreation();
 	bool swapRules(boost::shared_ptr<RobotRepresentation> &robot);
 	bool suppressRule(boost::shared_ptr<RobotRepresentation> &robot);
 	bool mutateRule(boost::shared_ptr<RobotRepresentation> &robot);

@@ -195,6 +195,9 @@ bool EvolverConfiguration::init(std::string configFileName) {
 		("pMutateAxiom",
 				boost::program_options::value<double>(),
 				"Probability of axiom mutation (indirect mode)")
+		("parameterProbability",
+				boost::program_options::value<double>(),
+				"Probability of rule parameter mutation (indirect mode)")
 		("neatParamsFile",
 				boost::program_options::value<std::string>(&neatParamsFile),
 				"File for NEAT/HyperNEAT specific params")
@@ -444,6 +447,19 @@ bool EvolverConfiguration::init(std::string configFileName) {
 	} else {
 		std::cerr << "Specified probability to mutate axiom \"" <<
 				vm["pMutateAxiom"].as<double>() <<
+				"\" out of range. Must be between 0 and 1 (inclusive)"
+				 << std::endl;
+		return false;
+	}
+
+		// parse pMutateRuleParams
+	if (vm.count("parameterProbability") == 0){
+		pMutateRuleParams = 0.1;
+	} else if(vm["parameterProbability"].as<double>()<=1 && vm["parameterProbability"].as<double>()>=0){
+		pMutateRuleParams = vm["parameterProbability"].as<double>();
+	} else {
+		std::cerr << "Specified probability to mutate rule parameters \"" <<
+				vm["parameterProbability"].as<double>() <<
 				"\" out of range. Must be between 0 and 1 (inclusive)"
 				 << std::endl;
 		return false;

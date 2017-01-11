@@ -202,6 +202,11 @@ typedef struct EvolverConfiguration {
 	double pMutateAxiom;
 
 	/**
+	 * Probability of a rule parameter mutation operation
+	 */
+	double pMutateRuleParams;
+
+	/**
 	 *  Flag to continue evolving from provided brain instead of re-initialing
 	 *  params randomly
 	 */

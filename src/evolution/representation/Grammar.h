@@ -74,14 +74,24 @@ namespace robogen{
             typedef bool (SubRobotRepresentation::*RuleOperation)(boost::shared_ptr<SubRobotRepresentation>&);
             
             /**
-             * Produces a random rule with the given predecessor
+             * Rule default constructor
              * @param iterations number of times the rule is applied
-             * @param predecessor SubRobot of the pattern to search
-             * @param rng a random generator
-             * @param conf the evolver configuration
+             * @param predecessor SubRobot that will act as a predecessor
+             * @param successor SubRobot that will act as a successor
+             * @param deleteMap Map of parts that were used during the deletion step
+             * @param buildMap Map of parts that were used during the insertion step
+             * @param insertions buildSteps of insertions
+             * @param deletions IDs of deleted parts
+             * @param paramMutations paramMutationMap of mutated parameters
              */
+
             Rule(int iterations, boost::shared_ptr<SubRobotRepresentation> predecessor,
-                boost::random::mt19937 &rng, boost::shared_ptr<EvolverConfiguration> conf);
+                 boost::shared_ptr<SubRobotRepresentation> successor,
+                 boost::shared_ptr<effectMap> deleteMap,
+                 boost::shared_ptr<effectMap> buildMap,
+                 std::vector<buildStep> insertions,
+	             std::vector< std::string > deletions,
+                 std::vector<paramMutationMap> paramMutations);
 
             /**
              * Check if the predecessor is identical to the candidate
@@ -118,10 +128,6 @@ namespace robogen{
              */
             boost::shared_ptr<SubRobotRepresentation> getSuccessor(void);
         private:
-
-            /*The killer Rule: includes or not the root element of the successor.
-            */
-            bool rootRule;
 
             /**
              * Map from the intact predecessor
