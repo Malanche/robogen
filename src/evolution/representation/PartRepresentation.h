@@ -218,6 +218,16 @@ public:
 	void toString(std::stringstream& str, unsigned int depth);
 
 	/**
+	 * Get the current group ID
+	 */
+	unsigned int getGroupId(void);
+
+	/**
+	 * Set a new group ID
+	 */
+	void setGroupId(int newGroupId);
+
+	/**
 	 * EXTREME WARNING, THIS FUNCTION MIGHT BREAK ALL
 	 */
 	void popAllChildren(void){
@@ -276,6 +286,11 @@ private:
 	 * Sensors
 	 */
 	std::vector<std::string> sensors_;
+
+	/**
+	 * Group ID, for indirect encoding
+	 */
+	unsigned int groupID;
 
 };
 

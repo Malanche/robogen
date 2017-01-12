@@ -40,7 +40,7 @@ int Grammar::Rule::getNumIterations(){
 bool generateCloneMap(boost::shared_ptr<PartRepresentation> model, boost::shared_ptr<PartRepresentation> target, boost::shared_ptr<Grammar::Rule::effectMap> theMap){
 	//Comparison part
 	//Are types unequeal
-	if(model->getType()!=target->getType()){
+	if( ( model->getType()!=target->getType() ) || ( model->getGroupId()!=target->getGroupId() ) ){
 		return false;
 	} else {
 		(*theMap)[model->getId()] = target->getId();
@@ -86,8 +86,8 @@ bool matchingTree(boost::shared_ptr<PartRepresentation> original, boost::shared_
 	 * in the following if, you can select what variables of the node can be selected
 	 * as relevant variables.
 	 */
-	//Relevant variables: Type
-	if(wannabe->getType()!=original->getType()){
+	//Relevant variables: Type and groupID
+	if( ( wannabe->getType()!=original->getType() ) || ( wannabe->getGroupId()!=original->getGroupId() ) ){
 		return false;
 	} else {
 		//Does the model have children?

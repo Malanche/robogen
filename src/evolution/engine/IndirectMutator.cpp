@@ -109,6 +109,8 @@ bool IndirectMutator::insertNode(boost::shared_ptr<RobotRepresentation>& robot) 
 			conf_->allowedBodyPartTypes.size() - 1);
 	char type = conf_->allowedBodyPartTypes[distType(rng_)];
 
+	std::cout << "Axiom mutation..." << PART_TYPE_MAP.at(type) << std::endl;
+
 	// Randomly generate node orientation
 	boost::random::uniform_int_distribution<> orientationDist(0, 3);
 	unsigned int curOrientation = orientationDist(rng_);
@@ -531,6 +533,12 @@ bool IndirectMutator::createRule(boost::shared_ptr<RobotRepresentation> &robot){
 			}
 		}
 	}
+
+	if(attempt!=1000){
+		return true;
+	} else {
+		return false;
+	}
 }
 
 Grammar::Rule* IndirectMutator::auxiliarRuleCreation(){
@@ -760,7 +768,8 @@ bool IndirectMutator::swapRules(boost::shared_ptr<RobotRepresentation> &robot){
 	if(attempt==100){ //Couldn't find a pair of rules
 		return false;
 	} else {
-		return tmpGrammar->swapRules(first,second);
+		bool worked = tmpGrammar->swapRules(first,second);
+		return worked;
 	}
 }
 
@@ -771,7 +780,8 @@ bool IndirectMutator::suppressRule(boost::shared_ptr<RobotRepresentation> &robot
 		return false;
 	} else {
 		boost::random::uniform_int_distribution<> dist(0, tmpGrammar->getNumberOfRules()-1);
-		return tmpGrammar->popRuleAt(dist(rng_));
+		bool worked = tmpGrammar->popRuleAt(dist(rng_));
+		return worked;
 	}
 }
 
@@ -783,7 +793,8 @@ bool IndirectMutator::mutateRule(boost::shared_ptr<RobotRepresentation> &robot){
 	}
 	boost::random::uniform_int_distribution<> dist(0, tmpGrammar->getNumberOfRules()-1);
 
-	return tmpGrammar->getRule(dist(rng_))->mutate(this->rng_, this->conf_);
+	bool worked = tmpGrammar->getRule(dist(rng_))->mutate(this->rng_, this->conf_);
+	return worked;
 }
 
 bool IndirectMutator::mutateAxiom(boost::shared_ptr<RobotRepresentation> &robot){

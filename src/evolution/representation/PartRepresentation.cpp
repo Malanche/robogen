@@ -20,7 +20,7 @@ PartRepresentation::PartRepresentation(std::string id, unsigned int orientation,
 		const std::vector<double>& params,
 		const std::vector<std::string>& motors,
 		const std::vector<std::string>& sensors) :
-		id_(id), orientation_(orientation), arity_(arity), type_(type),
+		id_(id), orientation_(orientation), arity_(arity), type_(type), groupID(0),
 		parent_(NULL), params_(params), motors_(motors), sensors_(sensors) {
 
 	children_.resize(arity_, boost::shared_ptr<PartRepresentation>());
@@ -277,6 +277,14 @@ void PartRepresentation::addSubtreeToBodyMessage(
 		}
 	}
 
+}
+
+unsigned int PartRepresentation::getGroupId(void){
+	return this->groupID;
+}
+
+void PartRepresentation::setGroupId(int newGroupId){
+	this->groupID = newGroupId;
 }
 
 std::vector<std::string> PartRepresentation::getAncestorsIds() {
