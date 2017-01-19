@@ -109,7 +109,7 @@ bool IndirectMutator::insertNode(boost::shared_ptr<RobotRepresentation>& robot) 
 			conf_->allowedBodyPartTypes.size() - 1);
 	char type = conf_->allowedBodyPartTypes[distType(rng_)];
 
-	std::cout << "Axiom mutation..." << PART_TYPE_MAP.at(type) << std::endl;
+	//std::cout << "Axiom mutation..." << PART_TYPE_MAP.at(type) << std::endl;
 
 	// Randomly generate node orientation
 	boost::random::uniform_int_distribution<> orientationDist(0, 3);
@@ -508,9 +508,20 @@ bool IndirectMutator::createRule(boost::shared_ptr<RobotRepresentation> &robot){
 
 	int attempt=0;
 
-	if(tmpGrammar->getNumberOfRules()<30){
+	if(tmpGrammar->getNumberOfRules()<15){
 		while(attempt<1000){
 			tmpGrammar->addRule(boost::shared_ptr<Grammar::Rule>(auxiliarRuleCreation()));
+			boost::shared_ptr<Grammar::Rule> mRule = tmpGrammar->getRule(tmpGrammar->getNumberOfRules()-1);
+
+			/*
+			std::cout << "NEW RULE BEING TESTED FROM HERE#######################################################" << std::endl << std::endl;
+
+			std::cout << "The predecessor is:\n";
+			std::cout << mRule->getPredecessor()->toString() << std::endl;
+			std::cout << "The successor is:\n";
+			std::cout << mRule->getSuccessor()->toString() << std::endl;
+			*/
+
 
 			bool success = finalBot->buildFromGrammar();
 
@@ -518,6 +529,8 @@ bool IndirectMutator::createRule(boost::shared_ptr<RobotRepresentation> &robot){
 
 			int errorCode;
 			std::vector<std::pair<std::string, std::string> > affectedBodyParts;
+
+			//std::cout << "Robot to be evaluated:" << std::endl << finalBot->toString() << std::endl;
 			if (success && BodyVerifier::verify(*finalBot.get(), errorCode,
 								affectedBodyParts, PRINT_ERRORS)) {
 
@@ -525,10 +538,13 @@ bool IndirectMutator::createRule(boost::shared_ptr<RobotRepresentation> &robot){
 					std::cout << "Consistency check failed in mutation operator " << std::endl;
 				}
 
+				//std::cout << "Finnished succesful rule#######################################################" << std::endl << std::endl;
+
 				robot = finalBot;
 				robot->setDirty();
 				break;
 			} else {
+				//std::cout << "last rule failed#######################################################" << std::endl << std::endl;
 				tmpGrammar->popLastRule();
 			}
 		}
@@ -631,7 +647,7 @@ Grammar::Rule* IndirectMutator::auxiliarRuleCreation(){
 		}
 
 		boost::random::uniform_int_distribution<> distType(0,
-			conf_->allowedBodyPartTypes.size() - 1 - 1);
+			conf_->allowedBodyPartTypes.size() - 1);
 		char type = conf_->allowedBodyPartTypes[distType(rng_)];
 
 		// Randomly generate node orientation
@@ -689,6 +705,7 @@ Grammar::Rule* IndirectMutator::auxiliarRuleCreation(){
 			tmpStep.parentPartId = parent->first;
 			tmpStep.parentPartSlot = parentSlot;
 			tmpStep.newPart = backupNewPart;
+			tmpStep.newPartId = newPart->getId();
 			tmpStep.newPartSlot = newPartSlot;
 			tmpStep.motorNeuronType = mNType;
 
@@ -707,7 +724,7 @@ Grammar::Rule* IndirectMutator::auxiliarRuleCreation(){
 
 	//Time to mutate the parameters
 	boost::random::bernoulli_distribution<double> shouldMutateParams(conf_->pMutateRuleParams);
-	while(shouldMutateParams(rng_)){
+	while(shouldMutateParams(rng_) && bot.size()>1 && paramMutations.size()<10){
 		//We generate a uniform random distribution for all pieces in the predecessor.
 		boost::random::uniform_int_distribution<> dist(0, bot.size() - 1 -1);
 		//We get an iterator and we point it to the beginning of the parts.
@@ -718,13 +735,16 @@ Grammar::Rule* IndirectMutator::auxiliarRuleCreation(){
 
 		std::vector<double> params = partToMutate->second.lock()->getParams();
 
-		boost::random::uniform_01<double> paramDist;
+		if(params.size()>0){
 
-		for(int i=0; i<params.size(); i++){
-			params.at(i) = paramDist(rng_);
+			boost::random::uniform_01<double> paramDist;
+
+			for(int i=0; i<params.size(); i++){
+				params.at(i) = paramDist(rng_);
+			}
+
+			paramMutations.push_back(std::make_pair(partToMutate->first,params));
 		}
-
-		paramMutations.push_back(std::make_pair(partToMutate->first,params));
 	}
 
 	#ifdef DEBUG_MUTATE

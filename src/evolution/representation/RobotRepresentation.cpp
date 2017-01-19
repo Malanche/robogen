@@ -343,8 +343,13 @@ bool RobotRepresentation::createRobotMessageFromFile(robogenMessage::Robot
 }
 
 bool RobotRepresentation::buildFromGrammar(void){
-	this->robotMorph_ = this->grammar_->buildTree();
-	return !this->grammar_->lastBuildFailed();
+	boost::shared_ptr<SubRobotRepresentation> resultBot = this->grammar_->buildTree();
+	if(resultBot!=NULL){
+		this->robotMorph_ = resultBot;
+		return true;
+	} else {
+		return false;
+	}
 }
 
 }

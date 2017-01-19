@@ -10,6 +10,8 @@
 #include <math.h>
 #include <queue>
 
+//#define DEBUG_GRAMMAR
+
 #include "evolution/representation/Grammar.h"
 
 using namespace robogen;
@@ -37,49 +39,22 @@ int Grammar::Rule::getNumIterations(){
 	return this->iterations_;
 }
 
-bool generateCloneMap(boost::shared_ptr<PartRepresentation> model, boost::shared_ptr<PartRepresentation> target, boost::shared_ptr<Grammar::Rule::effectMap> theMap){
-	//Comparison part
-	//Are types unequeal
-	if( ( model->getType()!=target->getType() ) || ( model->getGroupId()!=target->getGroupId() ) ){
+bool generateCloneMap(boost::shared_ptr<PartRepresentation> ruleNode, boost::shared_ptr<PartRepresentation> robotNode,
+						boost::shared_ptr<Grammar::Rule::effectMap> theMap, bool isRoot=true){
+	//We check if the main node is the core, if yes, we return false.
+	if(robotNode->getType()=="ParametricPrismCore"){
 		return false;
-	} else {
-		(*theMap)[model->getId()] = target->getId();
-		//Does the model have children?
-		if(model->getChildrenCount()>0){
-			//Then, does the target have also?
-			if(target->getChildrenCount()>0){
-				//Now we'll check if the target share's the model's children
-				for(int i=0;i < model->getChildrenCount(); i++){
-					//Positions must match
-					int pos = model->getChild(i)->getPosition();
-					//We check against all children at the target
-					bool kidsMatch=false;
-					for(int j=0; j<target->getChildrenCount(); j++){
-						if(pos == target->getChild(j)->getPosition()){
-							//if the children do not match (recursively)
-							if(!generateCloneMap(model->getChild(i), target->getChild(j), theMap)){
-								return false;
-							}
-							kidsMatch=true;
-							break;
-						}
-					}
-					//If we didn't find a child in the same slot
-					if(!kidsMatch){
-						return false;
-					}
-				}
-				return true;
-			} else {
-				return false;
-			}
-		} else {
-			return true;
-		}
 	}
-}
+	
+	//if we have a root node, we add the id's to the map
+	if(isRoot){
+		if(theMap!=NULL){
+			(*theMap)[ruleNode->getId()] = robotNode->getParent()->getId();
+		}
+		//If it is root, this means we have been passed the pointer to the core of the successor
+		return generateCloneMap(ruleNode->getChild(0), robotNode, theMap, false);
+	}
 
-bool matchingTree(boost::shared_ptr<PartRepresentation> original, boost::shared_ptr<PartRepresentation> wannabe){
 	//Comparison part
 	/**
 	 * HERE is where you define your characters (in L-systems).
@@ -87,50 +62,32 @@ bool matchingTree(boost::shared_ptr<PartRepresentation> original, boost::shared_
 	 * as relevant variables.
 	 */
 	//Relevant variables: Type and groupID
-	if( ( wannabe->getType()!=original->getType() ) || ( wannabe->getGroupId()!=original->getGroupId() ) ){
+	if( ( ruleNode->getType()!=robotNode->getType() ) || ( ruleNode->getGroupId()!=robotNode->getGroupId() ) ){
 		return false;
 	} else {
-		//Does the model have children?
-		if(original->getChildrenCount()>0){
-			//Then, does the target have also?
-			if(wannabe->getChildrenCount()>0){
-				//Now we'll check if the target share's the model's children
-				for(int i=0;i < original->getChildrenCount(); i++){
-					//Positions must match
-					int pos = original->getChild(i)->getPosition();
-					//We check against all children at the target
-					bool kidsMatch=false;
-					for(int j=0; j<wannabe->getChildrenCount(); j++){
-						if(pos == wannabe->getChild(j)->getPosition()){
-							//There is a child in the same slot... is it the same?
-							if(!matchingTree(original->getChild(i), wannabe->getChild(j))){
-								return false;
-							}
-							kidsMatch=true;
-							break;
-						}
-					}
-					//If we didn't find a child in the same slot
-					if(!kidsMatch){
+		if(theMap!=NULL){
+			(*theMap)[ruleNode->getId()] = robotNode->getId();
+		}
+		for(int i=0;i < ruleNode->getArity(); i++){
+			if(ruleNode->getChild(i)!=NULL){
+				boost::shared_ptr<PartRepresentation> child = robotNode->getChild(ruleNode->getChild(i)->getPosition());
+				if(child==NULL){
+					return false;
+				} else {
+					if(!generateCloneMap(ruleNode->getChild(i), child, theMap, false)){
 						return false;
 					}
 				}
-				//all kids matched, so it is true
-				return true;
-			} else {
-				//immediate false, no children!
-				return false;
 			}
-		} else {
-			//They match in type, it doesn't matter if the wannabe has children
-			return true;
 		}
+		//all kids matched, so it is true
+		return true;
 	}
 }
 
 bool Grammar::Rule::matchesPredecessor(boost::shared_ptr<PartRepresentation> candidate){
 	boost::shared_ptr<PartRepresentation> tree = this->predecessor_->getTree();
-	return matchingTree(tree->getChild(0), candidate);
+	return generateCloneMap(tree->getChild(0), candidate, boost::shared_ptr<Grammar::Rule::effectMap>(), true);
 }
 
 bool Grammar::Rule::mutate(boost::random::mt19937 &rng, boost::shared_ptr<EvolverConfiguration> conf){
@@ -156,10 +113,12 @@ bool Grammar::Rule::mutate(boost::random::mt19937 &rng, boost::shared_ptr<Evolve
 
 		//We first build a copy of the predecessor to advance it to the last
 		//step of the deletions
+
 		int attempt=0;
 
 		boost::shared_ptr<SubRobotRepresentation> successor = boost::shared_ptr<SubRobotRepresentation>(new SubRobotRepresentation(*this->predecessor_.get()));
 		SubRobotRepresentation::IdPartMap parts = successor->getBody();
+
 		for(int i=0; i< this->deletions_.size(); i++){
 			successor->removePart(deletions_.at(i), false);
 		}
@@ -203,7 +162,7 @@ bool Grammar::Rule::mutate(boost::random::mt19937 &rng, boost::shared_ptr<Evolve
 
 					for(int i =0; i < this->insertions_.size(); i++){
 						if(current == this->insertions_.at(i).parentPartId){
-							toEliminate.push(this->insertions_.at(i).newPart->getId());
+							toEliminate.push(this->insertions_.at(i).newPartId);
 							this->insertions_.erase(this->insertions_.begin()+i);
 							i--;
 						}
@@ -242,7 +201,7 @@ bool Grammar::Rule::mutate(boost::random::mt19937 &rng, boost::shared_ptr<Evolve
 			}
 
 			boost::random::uniform_int_distribution<> distType(0,
-				conf->allowedBodyPartTypes.size() - 1 - 1);
+				conf->allowedBodyPartTypes.size() - 1);
 			char type = conf->allowedBodyPartTypes[distType(rng)];
 
 			// Randomly generate node orientation
@@ -300,6 +259,7 @@ bool Grammar::Rule::mutate(boost::random::mt19937 &rng, boost::shared_ptr<Evolve
 				tmpStep.parentPartId = parent->first;
 				tmpStep.parentPartSlot = parentSlot;
 				tmpStep.newPart = backupNewPart;
+				tmpStep.newPartId = newPart->getId();
 				tmpStep.newPartSlot = newPartSlot;
 				tmpStep.motorNeuronType = mNType;
 
@@ -307,69 +267,123 @@ bool Grammar::Rule::mutate(boost::random::mt19937 &rng, boost::shared_ptr<Evolve
 			}
 		}
 	}
+	return true;
 }
 
-bool Grammar::Rule::applyRule(boost::shared_ptr<SubRobotRepresentation> robot, boost::shared_ptr<PartRepresentation> node){
+boost::shared_ptr<SubRobotRepresentation> Grammar::Rule::applyRuleTo(boost::shared_ptr<SubRobotRepresentation> robot){
 	
-	boost::shared_ptr<SubRobotRepresentation> successor = boost::shared_ptr<SubRobotRepresentation>(new SubRobotRepresentation(*this->predecessor_.get()));
+	boost::shared_ptr<SubRobotRepresentation> finalBot = boost::shared_ptr<SubRobotRepresentation>(new SubRobotRepresentation(*robot.get()));
 
-	boost::shared_ptr<Rule::effectMap> tmpMap = boost::shared_ptr<Rule::effectMap>(new Rule::effectMap(*this->buildMap_.get()));
-
-	bool match = generateCloneMap(this->predecessor_->getTree()->getChild(0), node, tmpMap);
-	(*tmpMap)[this->predecessor_->getTree()->getId()] = node->getParent()->getId();
-
-	//typedef effectMap::iterator it_type;
-	//for(it_type iterator = tmpMap->begin(); iterator != tmpMap->end(); iterator++) {
-	//	std::cout << iterator->first << " and " << iterator->second << std::endl;
-	//}
-
-	for(int i=0; i< this->deletions_.size(); i++){
-		successor->removePart(deletions_.at(i), false);
-		bool success = robot->removePart(tmpMap->at(deletions_.at(i)), false);
-		if(!success){
-			return false;
-		}
-	}
-
-	for(int i=0; i< this->insertions_.size(); i++){
-		buildStep tmpStep = this->insertions_.at(i);
-
-		boost::shared_ptr<PartRepresentation> newPart = boost::shared_ptr<PartRepresentation>(new PartRepresentation(*tmpStep.newPart.get()));
-
-		successor->insertPart(tmpStep.parentPartId,
-				tmpStep.parentPartSlot,
-				newPart,
-				tmpStep.newPartSlot,
-				tmpStep.motorNeuronType,
-				false);
-
-		boost::shared_ptr<PartRepresentation> newPart2 = boost::shared_ptr<PartRepresentation>(new PartRepresentation(*tmpStep.newPart.get()));
-
-		bool success = robot->insertPart((*tmpMap)[tmpStep.parentPartId],
-				tmpStep.parentPartSlot,
-				newPart2,
-				tmpStep.newPartSlot,
-				tmpStep.motorNeuronType,
-				false);
-
-		if(!success){
-			return false;
-		}
-
-		(*tmpMap)[successor->getNodeById(tmpStep.parentPartId)->getChild(tmpStep.parentPartSlot)->getId()] = newPart2->getId();
-	}
-
+	//We will use this robot map in any case. Always, remember please.
 	typedef SubRobotRepresentation::IdPartMap::iterator it_type;
-	SubRobotRepresentation::IdPartMap bot = robot->getBody();
+	SubRobotRepresentation::IdPartMap robotMap = robot->getBody();
 
-	for(int i=0; i< this->paramMutations_.size(); i++){
-		std::vector<double> params = bot.at((*tmpMap)[this->paramMutations_.at(i).first]).lock()->getParams();
-		for(int j=0; j<params.size(); j++){
-			params.at(j) = this->paramMutations_.at(i).second.at(j);
+	for(it_type iterator = robotMap.begin(); iterator != robotMap.end(); iterator++) {
+
+		#ifdef DEBUG_GRAMMAR
+		std::cout << "Dealing with part " << iterator->first << " of type " << iterator->second.lock()->getType() << std::endl;
+		#endif
+		
+		boost::shared_ptr<SubRobotRepresentation> successor = boost::shared_ptr<SubRobotRepresentation>(new SubRobotRepresentation(*this->predecessor_.get()));
+		boost::shared_ptr<Rule::effectMap> tmpMap = boost::shared_ptr<Rule::effectMap>(new Rule::effectMap(*this->buildMap_.get()));
+
+		SubRobotRepresentation::IdPartMap currentMap = finalBot->getBody();
+
+		#ifdef DEBUG_GRAMMAR
+		std::cout << "Ready to start checking if the part matches..." << std::endl;
+		#endif
+
+		if(currentMap.find(iterator->first)!=currentMap.end()){
+			if(generateCloneMap(this->predecessor_->getTree(),finalBot->getBody().at(iterator->first).lock(), tmpMap)){ //If there is no match, we are still ok
+				#ifdef DEBUG_GRAMMAR
+				std::cout << "-->This part has a match" << std::endl;
+				std::cout << "-->Starting deletion steps.." << std::endl;
+				#endif
+
+				for(int i=0; i< this->deletions_.size(); i++){
+					#ifdef DEBUG_GRAMMAR
+					std::cout << i+1 << "..." << std::endl;
+					#endif
+					successor->removePart(deletions_.at(i), false);
+					bool success = finalBot->removePart(tmpMap->at(deletions_.at(i)), false);
+					if(!success){
+						return boost::shared_ptr<SubRobotRepresentation>();
+					}
+				}
+				#ifdef DEBUG_GRAMMAR
+				std::cout << "Current robot:" << std::endl << finalBot->toString() << std::endl;	
+				std::cout << "-->Deletion steps concluded." << std::endl << "-->Starting Insertion steps.." << std::endl;
+				#endif
+
+				for(int i=0; i< this->insertions_.size(); i++){
+					buildStep tmpStep = this->insertions_.at(i);
+
+					boost::shared_ptr<PartRepresentation> newPart = boost::shared_ptr<PartRepresentation>(new PartRepresentation(*tmpStep.newPart.get()));
+					boost::shared_ptr<PartRepresentation> newPart2 = boost::shared_ptr<PartRepresentation>(new PartRepresentation(*tmpStep.newPart.get()));
+
+					successor->insertPart(tmpStep.parentPartId,
+							tmpStep.parentPartSlot,
+							newPart,
+							tmpStep.newPartSlot,
+							tmpStep.motorNeuronType,
+							false);
+
+					#ifdef DEBUG_GRAMMAR
+					std::cout << "-->Inserting " << newPart->getType() << " equivalent.." << std::endl;
+					std::cout << "(Trying to insert at " << (*tmpMap)[tmpStep.parentPartId] << ")" << std::endl;
+					#endif
+
+					bool success = finalBot->insertPart((*tmpMap)[tmpStep.parentPartId],
+							tmpStep.parentPartSlot,
+							newPart2,
+							tmpStep.newPartSlot,
+							tmpStep.motorNeuronType,
+							false);
+
+					if(!success){
+						return boost::shared_ptr<SubRobotRepresentation>();
+					}
+
+					(*tmpMap)[successor->getNodeById(tmpStep.parentPartId)->getChild(tmpStep.parentPartSlot)->getId()] = newPart2->getId();
+				}
+
+				#ifdef DEBUG_GRAMMAR
+				std::cout << "-->Insertion steps concluded" << std::endl;
+				std::cout << "Robot after insertions:" <<std::endl << finalBot->toString() << std::endl << "Starting Parameter Mutation steps..." << std::endl;
+				std::cout << "Expecting " << this->paramMutations_.size() << " param mutations." << std::endl;
+				#endif
+
+				typedef SubRobotRepresentation::IdPartMap::iterator it_type;
+				SubRobotRepresentation::IdPartMap bot = finalBot->getBody();
+
+				for(int i=0; i< this->paramMutations_.size(); i++){
+					std::vector<double> params = bot.at((*tmpMap)[this->paramMutations_.at(i).first]).lock()->getParams();
+
+					#ifdef DEBUG_GRAMMAR
+					std::cout << i+1 << " mutation... to " << this->paramMutations_.at(i).first << std::endl;
+					std::cout << "First vector holds " << this->paramMutations_.at(i).second.size() << " entrances." << std::endl;
+					std::cout << "Target vector holds " << this->paramMutations_.at(i).second.size() << " entrances." << std::endl;
+					#endif
+
+					for(int j=0; j<params.size(); j++){
+						params.at(j) = this->paramMutations_.at(i).second.at(j);
+					}
+				}
+				#ifdef DEBUG_GRAMMAR
+				std::cout << "-->Parameter Mutation steps concluded." << std::endl;
+				#endif
+			} else {
+				#ifdef DEBUG_GRAMMAR
+				std::cout << "Part didn't match." << std::endl;
+				#endif
+			}
+			#ifdef DEBUG_GRAMMAR
+			std::cout << "-->Successful iteration" << std::endl;
+			#endif
 		}
 	}
 
-	return true;
+	return finalBot;
 }
 
 boost::shared_ptr<SubRobotRepresentation> Grammar::Rule::getSuccessor(void){
@@ -411,8 +425,6 @@ Grammar::Grammar(boost::shared_ptr<SubRobotRepresentation> axiom){
     this->axiom_.reset(new SubRobotRepresentation());
 	//Deep copy the passed axiom.
 	*this->axiom_ = *axiom;
-
-	this->lastBuildWorked=true;
 }
 
 Grammar::Grammar(boost::shared_ptr<SubRobotRepresentation> axiom, std::vector< boost::shared_ptr<Rule> > rules){
@@ -421,8 +433,6 @@ Grammar::Grammar(boost::shared_ptr<SubRobotRepresentation> axiom, std::vector< b
 	//Deep copy the passed axiom.
 	*this->axiom_ = *axiom;
 	this->rules_ = rules;
-
-	this->lastBuildWorked=true;
 }
 
 boost::shared_ptr<SubRobotRepresentation> Grammar::getAxiom(void){
@@ -434,6 +444,11 @@ std::vector< boost::shared_ptr<Grammar::Rule> > Grammar::getAllRules(){
 }
 
 boost::shared_ptr<SubRobotRepresentation> Grammar::buildTree(void){
+
+	#ifdef DEBUG_GRAMMAR
+	std::cout << "Building a robot, starting from axiom:" << std::endl;
+	std::cout << this->axiom_->toString() << std::endl;
+	#endif
 
 	//emtpy pointer for the final build
 	boost::shared_ptr<SubRobotRepresentation> final;
@@ -447,41 +462,46 @@ boost::shared_ptr<SubRobotRepresentation> Grammar::buildTree(void){
 
 	int nRules = this->rules_.size();
 
+	#ifdef DEBUG_GRAMMAR
+	std::cout << "The robot has " << nRules << " rules" << std::endl;
+	#endif
+
 	//Iterate over every rule
 	for(int r=0;r<nRules;r++){
+		int nIter = this->rules_.at(r)->getNumIterations();
+
+
+		#ifdef DEBUG_GRAMMAR
+		std::cout << "Rule " << r+1 << " has the following shape:" << std::endl;
+
+		std::cout << "Predecessor:" << std::endl;
+		std::cout << this->rules_.at(r)->getPredecessor()->toString() << std::endl;
+		std::cout << "Successor:" << std::endl;
+		std::cout << this->rules_.at(r)->getSuccessor()->toString() << std::endl;
+
+		std::cout << "Rule " << r+1 << " has " << nIter << " iterations." << std::endl;
+		#endif
 
 		//Repeat each rule as many times as required
-		for(int n=this->rules_.at(r)->getNumIterations();n>0;n--){
+		for(int n=0;n<nIter;n++){
 
-			//look for the rule through all the tree
-			for(it_type iterator = bot.begin(); iterator != bot.end(); iterator++) {
+			#ifdef DEBUG_GRAMMAR
+			std::cout << "Iteration number " << n+1 << std::endl;
+			#endif
 
-				if(this->rules_.at(r)->matchesPredecessor(iterator->second.lock())){
+			final = this->rules_.at(r)->applyRuleTo(final);
 
-					if(!this->rules_.at(r)->applyRule(final, iterator->second.lock())){
-						//The robot can't be built!
-						*final = *this->axiom_;
-						this->lastBuildWorked=false;
-						return final;
-					}
-
-				}
-			
+			if(final==NULL){
+				//final = boost::shared_ptr<SubRobotRepresentation>(new SubRobotRepresentation(*this->axiom_.get()));
+				//std::cout << final->toString() << std::endl;
+				return final;
 			}
-
-			bot=final->getBody();
 		}
 	}
-	
-	this->lastBuildWorked=true;
 	return final;
 }
 
 bool Grammar::addRule(boost::shared_ptr<Grammar::Rule> newRule){
 	this->rules_.push_back(newRule);
 	return true;
-}
-
-bool Grammar::lastBuildFailed(){
-	return !this->lastBuildWorked;
 }

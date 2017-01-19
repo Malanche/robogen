@@ -59,6 +59,7 @@ namespace robogen{
                 std::string parentPartId;
                 unsigned int parentPartSlot;
                 boost::shared_ptr<PartRepresentation> newPart;
+                std::string newPartId;
                 unsigned int newPartSlot;
                 unsigned int motorNeuronType;
             };
@@ -112,6 +113,13 @@ namespace robogen{
              * @param candidate PartRepresentation, a node in the robot to be compared.a
              */
             bool applyRule(boost::shared_ptr<SubRobotRepresentation> robot, boost::shared_ptr<PartRepresentation> node);
+
+            /**
+             * Apply the rule for one single iteration in the whole robot
+             * @param robot SubRobot to which the rule will try to be applied
+             * @return The resulting robot if no errors where detected during the build, null otherwise.
+             */
+            boost::shared_ptr<SubRobotRepresentation> applyRuleTo(boost::shared_ptr<SubRobotRepresentation> robot);
 
             /**
              * Get the number of times the rule should be applied.
@@ -211,6 +219,9 @@ namespace robogen{
          */
         bool swapRules(int rule1, int rule2);
 
+        /**
+         * Pop last rule of the rule vector in the grammar
+         */
         void popLastRule(void);
 
         /**
@@ -219,8 +230,6 @@ namespace robogen{
          * @return True if the operation was successfull
         */
         bool popRuleAt(int indx);
-
-        bool lastBuildFailed();
 
         std::vector< boost::shared_ptr<Rule> > getAllRules(void);
     private:
@@ -233,8 +242,6 @@ namespace robogen{
          * Vector of rules in the grammar
          */
         std::vector< boost::shared_ptr<Rule> > rules_;
-
-        bool lastBuildWorked;
     };
 }
 

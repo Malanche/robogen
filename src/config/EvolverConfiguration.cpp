@@ -442,7 +442,7 @@ bool EvolverConfiguration::init(std::string configFileName) {
 		// parse pMutateAxiom
 	if (vm.count("pMutateAxiom") == 0){
 		pMutateAxiom = 0.4;
-	} else if(vm["pMuatateAxiom"].as<double>()<=1 && vm["pMutateAxiom"].as<double>()>=0){
+	} else if(vm["pMutateAxiom"].as<double>()<=1 && vm["pMutateAxiom"].as<double>()>=0){
 		pMutateAxiom = vm["pMutateAxiom"].as<double>();
 	} else {
 		std::cerr << "Specified probability to mutate axiom \"" <<
